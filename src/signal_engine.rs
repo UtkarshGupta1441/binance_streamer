@@ -1,5 +1,5 @@
 use crate::common::{Side, Tick};
-use ringbuf::spsc::{Consumer, Producer};
+use ringbuf::traits::{Consumer, Producer};
 use rust_decimal::Decimal;
 
 pub struct SignalEngine {
@@ -15,17 +15,21 @@ impl SignalEngine {
         }
     }
 
-    pub fn run(&mut self, mut tick_consumer: Consumer<Tick>, mut signal_producer: Producer<(String, Tick)>) {
+    pub fn run(
+        &mut self,
+        mut tick_consumer: impl Consumer<Item = Tick>,
+        mut signal_producer: impl Producer<Item = (String, Tick)>,
+    ) {
         println!("[Signal Engine] Running.");
         loop {
-            if let Some(tick) = tick_consumer.pop() {
+            if let Some(tick) = tick_consumer.try_pop() {
                 if let Some(Side::Buy) | Some(Side::Sell) = tick.side {
                     self.total_volume += tick.qty;
                     self.total_notional += tick.qty * tick.price;
                     if !self.total_volume.is_zero() {
                         let vwap = self.total_notional / self.total_volume;
                         let signal = format!("VWAP: {:.4}", vwap);
-                        if let Err(_) = signal_producer.push((signal, tick)) {
+                        if let Err(_) = signal_producer.try_push((signal, tick)) {
                             // eprintln!("[Signal Engine] Signal channel is full!");
                         }
                     }

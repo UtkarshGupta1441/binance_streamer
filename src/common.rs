@@ -1,19 +1,21 @@
 use rust_decimal::Decimal;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::time::{Instant, SystemTime};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Side {
     Buy,
     Sell,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Tick {
     pub symbol: String,
+    #[serde(skip_serializing)]
     pub side: Option<Side>,
     pub price: Decimal,
     pub qty: Decimal,
+    #[serde(skip_serializing)]
     pub machine_time: Instant,
     pub wall_clock_time: SystemTime,
 }

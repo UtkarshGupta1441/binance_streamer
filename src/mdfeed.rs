@@ -1,16 +1,20 @@
 use crate::common::{BinanceTrade, Side, Tick};
 use futures_util::StreamExt;
-use ringbuf::spsc::Producer;
+use ringbuf::traits::Producer;
 use std::time::{Instant, SystemTime};
 use tokio::runtime::Runtime;
 use tokio_tungstenite::connect_async;
 
-pub fn run_md_feed(symbol: String, hot_path_prod: Producer<Tick>, warm_path_prod: Producer<Tick>) {
+pub fn run_md_feed(
+    symbol: String,
+    mut hot_path_prod: impl Producer<Item = Tick>,
+    mut warm_path_prod: impl Producer<Item = Tick>,
+) {
     let rt = Runtime::new().expect("Failed to create Tokio runtime");
     rt.block_on(async {
         let trade_url = format!("wss://stream.binance.com:9443/ws/{}@trade", symbol.to_lowercase());
 
-        let (ws_stream, _) = connect_async(url::Url::parse(&trade_url).unwrap())
+        let (ws_stream, _) = connect_async(&trade_url)
             .await
             .expect("Failed to connect to trade stream");
 
@@ -33,10 +37,10 @@ pub fn run_md_feed(symbol: String, hot_path_prod: Producer<Tick>, warm_path_prod
                     };
 
                     // Send to both hot and warm path channels
-                    if let Err(_) = hot_path_prod.push(tick.clone()) {
+                    if let Err(_) = hot_path_prod.try_push(tick.clone()) {
                         // eprintln!("[MD Feed] Hot path channel is full!");
                     }
-                    if let Err(_) = warm_path_prod.push(tick) {
+                    if let Err(_) = warm_path_prod.try_push(tick) {
                         // eprintln!("[MD Feed] Warm path channel is full!");
                     }
                 }

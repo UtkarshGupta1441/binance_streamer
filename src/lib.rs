@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use ringbuf::spsc::channel as spsc_channel;
+use ringbuf::{traits::Split, HeapRb};
 use std::thread;
 
 // Declare the modules
@@ -21,11 +21,11 @@ fn binance_streamer(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 fn start_pipeline(symbol: String) -> PyResult<()> {
     // --- Create IPC channels for the pipeline ---
     // Channel from mdfeed to the rest of the system
-    let (tick_producer, tick_consumer) = spsc_channel::<Tick>(8192);
+    let (tick_producer, tick_consumer) = HeapRb::<Tick>::new(8192).split();
     // Channel from signal engine to the router
-    let (signal_producer, signal_consumer) = spsc_channel::<(String, Tick)>(1024);
+    let (signal_producer, signal_consumer) = HeapRb::<(String, Tick)>::new(1024).split();
     // Channel from mdfeed to the storage engine
-    let (storage_producer, storage_consumer) = spsc_channel::<Tick>(8192);
+    let (storage_producer, storage_consumer) = HeapRb::<Tick>::new(8192).split();
 
     // --- Launch pipeline components in separate threads ---
 

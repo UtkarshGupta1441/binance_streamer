@@ -1,6 +1,6 @@
 use crate::common::Tick;
 use hdrhistogram::Histogram;
-use ringbuf::spsc::Consumer;
+use ringbuf::traits::Consumer;
 use std::time::Instant;
 
 pub struct Router {
@@ -14,12 +14,12 @@ impl Router {
         }
     }
 
-    pub fn run(&mut self, mut signal_consumer: Consumer<(String, Tick)>) {
+    pub fn run(&mut self, mut signal_consumer: impl Consumer<Item = (String, Tick)>) {
         println!("[Router] Running.");
         let mut last_print = Instant::now();
 
         loop {
-            if let Some((_signal, tick)) = signal_consumer.pop() {
+            if let Some((_signal, tick)) = signal_consumer.try_pop() {
                 let latency_ns = tick.machine_time.elapsed().as_nanos() as u64;
                 self.latency_recorder.record(latency_ns).unwrap();
             }
