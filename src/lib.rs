@@ -2,18 +2,42 @@ use pyo3::prelude::*;
 use ringbuf::{traits::Split, HeapRb};
 use std::thread;
 
-// Declare the modules
+// Declare the existing modules
 pub mod common;
 pub mod mdfeed;
 pub mod signal_engine;
 pub mod router;
 pub mod storage;
 
+// New trading modules
+pub mod types;
+pub mod orderbook;
+pub mod indicators;
+pub mod strategies;
+pub mod executor;
+pub mod strategy_manager;
+
 use common::Tick;
+
+// Re-export new classes for Python
+pub use types::{Signal, StrategyResult, TradeOrder};
+pub use orderbook::OrderBook;
+pub use executor::OrderExecutor;
+pub use strategy_manager::StrategyManager;
 
 #[pymodule]
 fn binance_streamer(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Existing function
     m.add_function(wrap_pyfunction!(start_pipeline, m)?)?;
+    
+    // New trading classes
+    m.add_class::<OrderBook>()?;
+    m.add_class::<OrderExecutor>()?;
+    m.add_class::<StrategyManager>()?;
+    m.add_class::<StrategyResult>()?;
+    m.add_class::<TradeOrder>()?;
+    m.add_class::<Signal>()?;
+    
     Ok(())
 }
 

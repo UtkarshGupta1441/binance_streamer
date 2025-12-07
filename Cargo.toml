@@ -30,3 +30,11 @@ memmap2 = "0.9.4"
 # Hot Path (Realtime Lane)
 ringbuf = "0.4.0"
 hdrhistogram = "7.5.4"
+
+# Trading - HTTP client for order execution
+reqwest = { version = "0.11", features = ["json", "blocking"] }
+
+# Trading - Cryptographic signing for Binance API
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"

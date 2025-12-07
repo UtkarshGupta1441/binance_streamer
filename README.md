@@ -1,94 +1,217 @@
-# Real-Time Binance Trading Dashboard
+# Trading Strategy Simulator
 
-This project is a real-time cryptocurrency trading dashboard that streams live order book and trade data from Binance. It features a web-based interface built with Streamlit and a high-performance backend component written in Rust for efficient data processing.
+A comprehensive trading strategy simulation platform that allows you to compare different algorithmic trading strategies in a risk-free environment. Built with a Streamlit web interface and powered by high-performance Rust-based trading algorithms.
 
-## Features
+## 🎯 What Is This?
 
-- **Live Data Streaming**: Connects to Binance WebSocket streams for real-time order book depth and trade updates.
-- **Dual Visualization Modes**:
-    - **Depth Chart**: A dynamic, cumulative depth chart visualizing market liquidity for bids and asks.
-    - **Order Book**: A classic, table-style view mimicking the Binance UI, showing price, amount, and total for both sides of the book.
-- **Real-Time Metrics**: Displays key trading indicators such as mid-price, spread, and book imbalance.
-- **Recent Trades**: Shows a live feed of the most recent market trades.
-- **High-Performance Rust Core**: Utilizes a Rust backend (integrated via PyO3 and Maturin) for potential high-speed data processing tasks, demonstrating a powerful polyglot architecture.
-- **Interactive UI**: Built with Streamlit for a responsive and easy-to-use web interface.
+This is an **educational trading simulator** designed to help you:
+- Learn how different trading strategies work
+- Compare strategy performance under various market conditions
+- Practice paper trading without risking real money
+- Understand technical indicators like EMA, Bollinger Bands, and RSI
 
-## Tech Stack
+> **Note**: This is a simulation tool for educational purposes only. No real trading or connection to live markets is involved.
 
-- **Frontend**: Streamlit
-- **Data Manipulation**: Pandas
-- **Charting**: Plotly
-- **Backend Core**: Rust
-- **Python-Rust Bridge**: PyO3 & Maturin
-- **API & WebSocket**: `requests`, `websocket-client`
+## ✨ Features
 
-## Project Setup and Installation
+### Trading Strategies
+Three professional-grade algorithmic strategies powered by Rust:
 
-Follow these steps to get the project running locally.
+| Strategy | Indicator | How It Works |
+|----------|-----------|--------------|
+| **Trend Follower** | EMA Crossover | Buys when short-term EMA crosses above long-term EMA (uptrend), sells when it crosses below (downtrend) |
+| **Mean Reversion** | Bollinger Bands | Buys when price drops below lower band (oversold), sells when it rises above upper band (overbought) |
+| **Momentum RSI** | Relative Strength Index | Buys when RSI indicates oversold conditions, sells when overbought |
+
+### Market Simulation
+Five realistic market scenarios to test your strategies:
+
+- 🎯 **Realistic** - Natural price movements with varied volatility
+- 📈 **Trending Bull** - Upward trending market
+- 📉 **Trending Bear** - Downward trending market  
+- ➡️ **Sideways** - Range-bound, choppy market
+- ⚡ **Volatile** - High volatility with large swings
+
+### Strategy Parameter Tuning
+Fine-tune each strategy's parameters to optimize performance:
+
+- **EMA Crossover**: Adjust short/long period lengths
+- **Bollinger Bands**: Configure period and standard deviation multiplier
+- **RSI**: Set period, oversold, and overbought thresholds
+
+### Paper Trading
+- Track simulated trades with entry/exit prices
+- Monitor P&L (Profit and Loss) in real-time
+- View complete trade history
+- Set custom starting balance
+
+### Live Visualization
+- Real-time price chart with strategy signals
+- P&L comparison across all strategies
+- Position tracking and trade markers
+- Performance metrics dashboard
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Web Interface** | Streamlit |
+| **Visualization** | Plotly |
+| **Data Processing** | Pandas |
+| **Trading Algorithms** | Rust |
+| **Python-Rust Bridge** | PyO3 & Maturin |
+
+## 📦 Installation
 
 ### Prerequisites
 
 - [Python 3.8+](https://www.python.org/downloads/)
 - [Rust](https://www.rust-lang.org/tools/install)
 
-### 1. Clone the Repository
+### Step 1: Clone the Repository
 
 ```bash
 git clone <repository-url>
 cd binance_streamer
 ```
 
-### 2. Set Up a Python Virtual Environment
-
-It is highly recommended to use a virtual environment to manage dependencies.
+### Step 2: Create Virtual Environment
 
 ```bash
-# Create the virtual environment
+# Create virtual environment
 python -m venv .venv
 
 # Activate it
-# On Windows (PowerShell/CMD)
+# Windows (PowerShell)
 .venv\Scripts\Activate.ps1
-# On macOS/Linux
+
+# Windows (CMD)
+.venv\Scripts\activate.bat
+
+# macOS/Linux
 source .venv/bin/activate
 ```
 
-### 3. Install Python Dependencies
-
-Install all the required Python packages using the `requirements.txt` file.
+### Step 3: Install Python Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Build the Rust Backend
-
-The Rust component needs to be compiled into a Python module. `maturin` handles this process seamlessly.
+### Step 4: Build Rust Backend
 
 ```bash
 maturin develop
 ```
 
-If successful, you will see output indicating that the package has been installed in your virtual environment.
+You should see output confirming the package was installed successfully.
 
-## Usage
+## 🚀 Quick Start
 
-Once the setup is complete, you can run the Streamlit application.
+### Running the Simulator
 
 ```bash
-streamlit run dashboard.py
+streamlit run dashboard_v2.py
 ```
 
-This will start the web server and open the dashboard in your default web browser. You can then enter a trading symbol (e.g., `BTCUSDT`) and click "Start/Update Stream" to begin viewing live data.
+The dashboard will open in your browser at `http://localhost:8501`.
 
-## File Structure
+### First Time Users - Getting Started
 
-- `dashboard.py`: The main Streamlit application file containing the UI and data visualization logic.
-- `research.py`: A script intended for backend data processing, which is run as a subprocess by the dashboard.
-- `src/`: This directory contains the Rust source code for the high-performance backend component.
-  - `lib.rs`: The main Rust library file that defines the Python module using PyO3.
-  - `*.rs`: Other Rust modules for specific functionalities.
-- `Cargo.toml`: The manifest file for the Rust project, defining its dependencies and metadata.
-- `requirements.txt`: A list of all Python packages required for the project.
-- `data/`: Directory used for storing data files, such as the `trades.csv` log.
-- `README.md`: This file.
+1. **Configure Settings** (Left Sidebar):
+   - Set your starting balance (default: $10,000)
+   - Choose a market scenario (start with "Realistic")
+   
+2. **Tune Strategy Parameters** (Optional):
+   - Expand strategy sections to customize
+   - Or use default values which work well
+   
+3. **Start Simulation**:
+   - Click the green "▶️ Start Simulation" button
+   - Watch the price chart update in real-time
+   
+4. **Monitor Performance**:
+   - Compare P&L across strategies
+   - View trade signals on the chart
+   - Check trade history at the bottom
+
+5. **Experiment**:
+   - Try different market scenarios
+   - Adjust strategy parameters
+   - Reset and compare results
+
+## 📁 Project Structure
+
+```
+binance_streamer/
+├── dashboard_v2.py      # Main Streamlit application
+├── simulator.py         # Market simulation engine
+├── requirements.txt     # Python dependencies
+├── Cargo.toml          # Rust project configuration
+├── src/                # Rust source code
+│   ├── lib.rs          # Python module definition
+│   ├── strategy_manager.rs
+│   ├── indicators/     # Technical indicators
+│   │   ├── ema.rs      # Exponential Moving Average
+│   │   ├── bollinger.rs # Bollinger Bands
+│   │   └── rsi.rs      # Relative Strength Index
+│   └── strategies/     # Trading strategies
+│       ├── trend_follower.rs
+│       ├── mean_reversion.rs
+│       └── momentum.rs
+└── data/               # Data storage
+```
+
+## 📊 Understanding the Dashboard
+
+### Main Display
+- **Price Chart**: Shows simulated price with buy/sell signals
+- **P&L Chart**: Compares profit/loss across strategies
+- **Metrics Cards**: Current price, balance, and positions
+
+### Sidebar Controls
+- **Starting Balance**: Initial capital for simulation
+- **Market Scenario**: Type of market to simulate
+- **Strategy Parameters**: Fine-tune indicator settings
+- **Start/Stop**: Control simulation
+
+### Trade History Table
+- Entry and exit timestamps
+- Position direction (Long/Short)
+- Entry and exit prices
+- Profit/Loss per trade
+
+## 🎓 Learning Resources
+
+### Strategy Concepts
+
+**EMA Crossover (Trend Following)**
+- Uses two moving averages of different lengths
+- Shorter EMA reacts faster to price changes
+- Crossovers signal trend changes
+
+**Bollinger Bands (Mean Reversion)**
+- Middle band = 20-period moving average
+- Upper/Lower bands = ±2 standard deviations
+- Price tends to revert to the mean
+
+**RSI (Momentum)**
+- Measures speed and magnitude of price changes
+- Scale of 0-100
+- <30 = Oversold, >70 = Overbought
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+- Add new trading strategies
+- Improve market simulation models
+- Enhance visualizations
+- Fix bugs or improve documentation
+
+## ⚠️ Disclaimer
+
+This software is for **educational purposes only**. It does not constitute financial advice and should not be used for real trading decisions. Past simulated performance does not guarantee future results.
+
+## 📄 License
+
+MIT License - feel free to use and modify for your own projects.
