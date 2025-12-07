@@ -1,5 +1,5 @@
 """
-Trading Strategy Simulator v3
+Trading Strategy Simulator v2
 =============================
 Fixed version with proper mode switching and no duplicate UI elements.
 """
@@ -189,7 +189,7 @@ if st.session_state.paper_trader:
         st.sidebar.caption("No trades yet - use BUY/SELL buttons!")
 
 st.sidebar.markdown("---")
-st.sidebar.caption("📊 Trading Strategy Simulator v4.0")
+st.sidebar.caption("📊 Trading Strategy Simulator")
 st.sidebar.caption("⚡ Powered by Rust + Python")
 
 
