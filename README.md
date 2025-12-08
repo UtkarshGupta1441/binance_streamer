@@ -45,6 +45,29 @@ Fine-tune each strategy's parameters to optimize performance:
 - View complete trade history
 - Set custom starting balance
 
+### 🎲 Monte Carlo Backtesting (NEW!)
+Run thousands of backtests to statistically validate strategy performance:
+
+- **Multiple Price Path Models**:
+  - Regime Switching (bull/bear/sideways transitions)
+  - Geometric Brownian Motion (classic random walk)
+  - Mean Reverting (Ornstein-Uhlenbeck process)
+  - Jump Diffusion (flash crashes/rallies)
+
+- **Comprehensive Statistics**:
+  - Mean, median, and standard deviation of returns
+  - 95% confidence intervals
+  - Value at Risk (VaR) at 95% and 99%
+  - Conditional VaR (Expected Shortfall)
+  - Probability of profit/loss
+  - Sharpe ratio distribution
+
+- **Visual Analysis**:
+  - Return distribution histograms
+  - Box plots comparing strategies
+  - Sample equity curves
+  - Downloadable reports
+
 ### Live Visualization
 - Real-time price chart with strategy signals
 - P&L comparison across all strategies
@@ -146,6 +169,7 @@ The dashboard will open in your browser at `http://localhost:8501`.
 binance_streamer/
 ├── dashboard_v2.py      # Main Streamlit application
 ├── simulator.py         # Market simulation engine
+├── montecarlo.py        # Monte Carlo backtesting module (NEW!)
 ├── requirements.txt     # Python dependencies
 ├── Cargo.toml          # Rust project configuration
 ├── src/                # Rust source code
@@ -164,7 +188,12 @@ binance_streamer/
 
 ## 📊 Understanding the Dashboard
 
-### Main Display
+### Mode Selection
+Switch between two modes in the sidebar:
+- **📊 Live Simulation**: Watch strategies compete in real-time
+- **🎲 Monte Carlo Backtest**: Run statistical analysis across thousands of simulations
+
+### Main Display (Live Simulation)
 - **Price Chart**: Shows simulated price with buy/sell signals
 - **P&L Chart**: Compares profit/loss across strategies
 - **Metrics Cards**: Current price, balance, and positions
@@ -180,6 +209,13 @@ binance_streamer/
 - Position direction (Long/Short)
 - Entry and exit prices
 - Profit/Loss per trade
+
+### Monte Carlo Results (Backtest Mode)
+- **Strategy Cards**: Mean return, probability of profit, Sharpe ratio, worst drawdown
+- **Return Distribution Tab**: Histogram of returns across all simulations
+- **Risk Analysis Tab**: VaR, CVaR, box plots, risk metrics table
+- **Equity Curves Tab**: Sample paths showing strategy behavior
+- **Full Report Tab**: Downloadable statistical summary
 
 ## 🎓 Learning Resources
 
