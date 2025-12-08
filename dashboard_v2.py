@@ -1,5 +1,5 @@
 """
-Trading Strategy Simulator v3
+Trading Strategy Simulator v2
 =============================
 Fixed version with proper mode switching and no duplicate UI elements.
 """
@@ -8,6 +8,79 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import time
+
+# ============================================================================
+# LATENCY TRACKING UTILITIES
+# ============================================================================
+class LatencyTracker:
+    """Tracks and prints operation latencies to the console."""
+    
+    def __init__(self):
+        self.enabled = True
+        self.tick_count = 0
+        self.summary_interval = 10  # Print summary every N ticks
+        self.latencies = {
+            'simulator_tick': [],
+            'strategy_update': [],
+            'chart_render': [],
+            'total_loop': []
+        }
+    
+    def measure(self, operation_name):
+        """Context manager to measure operation latency."""
+        return LatencyContext(self, operation_name)
+    
+    def record(self, operation_name, latency_ms):
+        """Record a latency measurement."""
+        if operation_name in self.latencies:
+            self.latencies[operation_name].append(latency_ms)
+    
+    def on_tick_complete(self):
+        """Called when a tick completes. Prints summary every N ticks."""
+        self.tick_count += 1
+        
+        # Only print summary every N ticks
+        if self.tick_count % self.summary_interval == 0:
+            self.print_summary()
+            # Clear latencies after printing summary
+            for key in self.latencies:
+                self.latencies[key] = []
+    
+    def print_summary(self):
+        """Print latency summary statistics for the last N ticks."""
+        print("\n" + "="*70)
+        print(f"📊 LATENCY SUMMARY (Ticks {self.tick_count - self.summary_interval + 1} - {self.tick_count})")
+        print("="*70)
+        
+        for name, values in self.latencies.items():
+            if values:
+                avg = sum(values) / len(values)
+                min_val = min(values)
+                max_val = max(values)
+                print(f"  {name:20s}: avg={avg:7.2f}ms | min={min_val:7.2f}ms | max={max_val:7.2f}ms")
+            else:
+                print(f"  {name:20s}: no data")
+        
+        print("="*70 + "\n")
+
+
+class LatencyContext:
+    """Context manager for measuring operation latency."""
+    
+    def __init__(self, tracker, operation_name):
+        self.tracker = tracker
+        self.operation_name = operation_name
+        self.start_time = None
+    
+    def __enter__(self):
+        self.start_time = time.perf_counter()
+        return self
+    
+    def __exit__(self, *args):
+        elapsed_ms = (time.perf_counter() - self.start_time) * 1000
+        self.tracker.record(self.operation_name, elapsed_ms)
+        return False
+
 
 # ============================================================================
 # PAGE CONFIG (Must be first)
@@ -20,22 +93,60 @@ st.set_page_config(
 )
 
 # ============================================================================
-# IMPORTS
+# IMPORTS WITH LATENCY TRACKING (only on first run)
 # ============================================================================
 RUST_AVAILABLE = False
 SIMULATOR_AVAILABLE = False
 
-try:
-    from binance_streamer import StrategyManager
-    RUST_AVAILABLE = True
-except ImportError:
-    pass
+# Use a flag to track if we've already printed startup info
+if 'startup_printed' not in st.session_state:
+    st.session_state.startup_printed = True
+    print("\n" + "="*70)
+    print("🚀 TRADING STRATEGY SIMULATOR - Starting Up")
+    print("="*70)
+    
+    # Measure Rust import latency
+    rust_import_start = time.perf_counter()
+    try:
+        from binance_streamer import StrategyManager
+        RUST_AVAILABLE = True
+        rust_import_ms = (time.perf_counter() - rust_import_start) * 1000
+        print(f"✅ Rust StrategyManager loaded in {rust_import_ms:.2f}ms")
+    except ImportError as e:
+        rust_import_ms = (time.perf_counter() - rust_import_start) * 1000
+        print(f"❌ Rust import failed in {rust_import_ms:.2f}ms: {e}")
+    
+    # Measure Simulator import latency
+    sim_import_start = time.perf_counter()
+    try:
+        from simulator import MarketSimulator, PaperTrader, MARKET_SCENARIOS, create_simulator
+        SIMULATOR_AVAILABLE = True
+        sim_import_ms = (time.perf_counter() - sim_import_start) * 1000
+        print(f"✅ Simulator module loaded in {sim_import_ms:.2f}ms")
+    except ImportError as e:
+        sim_import_ms = (time.perf_counter() - sim_import_start) * 1000
+        print(f"❌ Simulator import failed in {sim_import_ms:.2f}ms: {e}")
+    
+    print("="*70 + "\n")
+else:
+    # Imports without printing (subsequent runs)
+    try:
+        from binance_streamer import StrategyManager
+        RUST_AVAILABLE = True
+    except ImportError:
+        pass
+    
+    try:
+        from simulator import MarketSimulator, PaperTrader, MARKET_SCENARIOS, create_simulator
+        SIMULATOR_AVAILABLE = True
+    except ImportError:
+        pass
 
-try:
-    from simulator import MarketSimulator, PaperTrader, MARKET_SCENARIOS, create_simulator
-    SIMULATOR_AVAILABLE = True
-except ImportError:
-    pass
+# Initialize latency tracker in session state (persists across reruns)
+if 'latency_tracker' not in st.session_state:
+    st.session_state.latency_tracker = LatencyTracker()
+
+latency_tracker = st.session_state.latency_tracker
 
 # ============================================================================
 # SESSION STATE INITIALIZATION
@@ -189,7 +300,7 @@ if st.session_state.paper_trader:
         st.sidebar.caption("No trades yet - use BUY/SELL buttons!")
 
 st.sidebar.markdown("---")
-st.sidebar.caption("📊 Trading Strategy Simulator v4.0")
+st.sidebar.caption("📊 Trading Strategy Simulator")
 st.sidebar.caption("⚡ Powered by Rust + Python")
 
 
@@ -208,6 +319,9 @@ else:
 # ACTIVE VIEW
 # ============================================================================
 if st.session_state.is_running:
+    # Start tracking total loop time
+    loop_start = time.perf_counter()
+    
     current_price = 0
     mid_price = 0
     spread = 0
@@ -218,8 +332,12 @@ if st.session_state.is_running:
     
     if st.session_state.simulator:
         sim = st.session_state.simulator
-        tick = sim.next_tick()
-        ob = sim.get_order_book(20)
+        
+        # Measure simulator tick latency
+        with latency_tracker.measure('simulator_tick'):
+            tick = sim.next_tick()
+            ob = sim.get_order_book(20)
+        
         current_price = tick.price
         mid_price = ob.mid_price
         spread = ob.spread
@@ -254,7 +372,10 @@ if st.session_state.is_running:
         st.markdown("### 🤖 Strategy Comparison")
         
         sm = st.session_state.strategy_manager
-        results = sm.update(current_price)
+        
+        # Measure strategy update latency (Rust computation)
+        with latency_tracker.measure('strategy_update'):
+            results = sm.update(current_price)
         
         for result in results:
             name = result.name
@@ -324,6 +445,9 @@ if st.session_state.is_running:
         st.markdown("---")
         tab1, tab2, tab3 = st.tabs(["📈 Price", "📊 PnL", "📕 Order Book"])
         
+        # Measure chart rendering latency
+        chart_start = time.perf_counter()
+        
         with tab1:
             if len(st.session_state.price_history) > 5:
                 fig = go.Figure()
@@ -352,8 +476,18 @@ if st.session_state.is_running:
                 fig.add_trace(go.Scatter(x=asks_sorted['price'], y=asks_sorted['cum'], fill='tozeroy', name='Asks', line=dict(color='#EF5350')))
                 fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig, use_container_width=True)
+        
+        chart_elapsed_ms = (time.perf_counter() - chart_start) * 1000
+        latency_tracker.record('chart_render', chart_elapsed_ms)
     else:
         st.warning("⚠️ Run `maturin develop` to enable strategies.")
+    
+    # Calculate and print total loop latency
+    total_loop_ms = (time.perf_counter() - loop_start) * 1000
+    latency_tracker.record('total_loop', total_loop_ms)
+    
+    # Track tick completion (prints summary every 10 ticks)
+    latency_tracker.on_tick_complete()
     
     time.sleep(0.1)
     st.rerun()
