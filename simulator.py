@@ -276,8 +276,12 @@ class PaperTrader:
         elif side == 'SELL':
             current_position = self.positions.get(symbol, 0.0)
             if quantity > current_position:
-                # Allow short selling in simulation
-                pass
+                trade['status'] = 'REJECTED'
+                if current_position <= 0:
+                    trade['message'] = f'No {symbol} holdings to sell. Buy some first!'
+                else:
+                    trade['message'] = f'Insufficient holdings. You own {current_position:.4f}, tried to sell {quantity:.4f}'
+                return trade
             
             self.cash_balance += cost
             self.positions[symbol] = self.positions.get(symbol, 0.0) - quantity

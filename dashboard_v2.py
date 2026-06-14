@@ -49,7 +49,7 @@ class LatencyTracker:
     def print_summary(self):
         """Print latency summary statistics for the last N ticks."""
         print("\n" + "="*70)
-        print(f"📊 LATENCY SUMMARY (Ticks {self.tick_count - self.summary_interval + 1} - {self.tick_count})")
+        print(f"LATENCY SUMMARY (Ticks {self.tick_count - self.summary_interval + 1} - {self.tick_count})")
         print("="*70)
         
         for name, values in self.latencies.items():
@@ -102,7 +102,7 @@ SIMULATOR_AVAILABLE = False
 if 'startup_printed' not in st.session_state:
     st.session_state.startup_printed = True
     print("\n" + "="*70)
-    print("🚀 TRADING STRATEGY SIMULATOR - Starting Up")
+    print("TRADING STRATEGY SIMULATOR - Starting Up")
     print("="*70)
     
     # Measure Rust import latency
@@ -111,10 +111,10 @@ if 'startup_printed' not in st.session_state:
         from binance_streamer import StrategyManager
         RUST_AVAILABLE = True
         rust_import_ms = (time.perf_counter() - rust_import_start) * 1000
-        print(f"✅ Rust StrategyManager loaded in {rust_import_ms:.2f}ms")
+        print(f"Rust StrategyManager loaded in {rust_import_ms:.2f}ms")
     except ImportError as e:
         rust_import_ms = (time.perf_counter() - rust_import_start) * 1000
-        print(f"❌ Rust import failed in {rust_import_ms:.2f}ms: {e}")
+        print(f"Rust import failed in {rust_import_ms:.2f}ms: {e}")
     
     # Measure Simulator import latency
     sim_import_start = time.perf_counter()
@@ -122,10 +122,10 @@ if 'startup_printed' not in st.session_state:
         from simulator import MarketSimulator, PaperTrader, MARKET_SCENARIOS, create_simulator
         SIMULATOR_AVAILABLE = True
         sim_import_ms = (time.perf_counter() - sim_import_start) * 1000
-        print(f"✅ Simulator module loaded in {sim_import_ms:.2f}ms")
+        print(f"Simulator module loaded in {sim_import_ms:.2f}ms")
     except ImportError as e:
         sim_import_ms = (time.perf_counter() - sim_import_start) * 1000
-        print(f"❌ Simulator import failed in {sim_import_ms:.2f}ms: {e}")
+        print(f"Simulator import failed in {sim_import_ms:.2f}ms: {e}")
     
     print("="*70 + "\n")
 else:
@@ -177,6 +177,16 @@ st.markdown("""
     div[data-testid="stMetric"] { background-color: #1e1e2e; padding: 10px; border-radius: 8px; }
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
     .stTabs [data-baseweb="tab"] { padding: 8px 16px; }
+
+    /* Align paper-trading button columns to the bottom so buttons sit level with inputs */
+    div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] button[data-testid]) {
+        align-items: flex-end;
+    }
+
+    /* Reduce visual jitter during fragment reruns */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        min-height: 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -192,6 +202,7 @@ def reset_all():
     st.session_state.strategy_positions = {'Trend_Follower': 0, 'Mean_Reversion': 0, 'Momentum_RSI': 0}
     st.session_state.paper_trader = None
     st.session_state.strategy_manager = None
+    st.session_state.fragment_tick = 0
 
 
 # ============================================================================
@@ -309,18 +320,19 @@ if SIMULATOR_AVAILABLE:
 else:
     st.sidebar.error("❌ Simulator not available! Please install dependencies.")
 
-# Trade History in Sidebar
-if st.session_state.paper_trader:
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### � Your Trades")
-    trades = st.session_state.paper_trader.trade_history
-    if trades:
+# Trade History in Sidebar — use a single placeholder so the fragment can update it
+st.sidebar.markdown("---")
+sidebar_trades_placeholder = st.sidebar.empty()
+with sidebar_trades_placeholder.container():
+    st.markdown("### 📋 Your Trades")
+    if st.session_state.paper_trader and st.session_state.paper_trader.trade_history:
+        trades = st.session_state.paper_trader.trade_history
         for trade in reversed(trades[-5:]):
             emoji = "🟢" if trade['side'] == 'BUY' else "🔴"
-            st.sidebar.caption(f"{emoji} {trade['side']} {trade['quantity']:.4f} @ ${trade['price']:,.2f}")
-        st.sidebar.caption(f"Total: {len(trades)} trades")
+            st.caption(f"{emoji} {trade['side']} {trade['quantity']:.4f} @ ${trade['price']:,.2f}")
+        st.caption(f"Total: {len(trades)} trades")
     else:
-        st.sidebar.caption("No trades yet - use BUY/SELL buttons!")
+        st.caption("No trades yet - use BUY/SELL buttons!")
 
 st.sidebar.markdown("---")
 st.sidebar.caption("📊 Trading Strategy Simulator")
@@ -692,178 +704,264 @@ else:
     # ACTIVE VIEW
     # ============================================================================
     if st.session_state.is_running:
-        # Start tracking total loop time
-        loop_start = time.perf_counter()
-        
-        current_price = 0
-        mid_price = 0
-        spread = 0
-        bids_df = pd.DataFrame()
-        asks_df = pd.DataFrame()
-        regime = ""
-        symbol = "BTCUSDT"
-        
-        if st.session_state.simulator:
-            sim = st.session_state.simulator
-            
-            # Measure simulator tick latency
-            with latency_tracker.measure('simulator_tick'):
-                tick = sim.next_tick()
-                ob = sim.get_order_book(20)
-            
-            current_price = tick.price
-            mid_price = ob.mid_price
-            spread = ob.spread
-            bids_df = pd.DataFrame(ob.bids, columns=['price', 'quantity'])
-            asks_df = pd.DataFrame(ob.asks, columns=['price', 'quantity'])
-            regime = sim.regime.replace('_', ' ').title()
-            symbol = sim.symbol
-        
-        if current_price > 0:
-            st.session_state.price_history.append(current_price)
-            if len(st.session_state.price_history) > 500:
-                st.session_state.price_history = st.session_state.price_history[-500:]
-        
-        st.markdown("---")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("💰 Price", f"${current_price:,.2f}")
-        col2.metric("📊 Spread", f"${spread:,.4f}")
-        col3.metric("📈 Regime", regime)
-        col4.metric("⏱️ Ticks", len(st.session_state.price_history))
-        
-        if st.session_state.paper_trader:
-            pt = st.session_state.paper_trader
-            pnl = pt.get_total_pnl({symbol: current_price})
-            bcol1, bcol2, bcol3 = st.columns(3)
-            bcol1.metric("💵 Cash", f"${pt.cash_balance:,.2f}")
-            bcol2.metric("📊 PnL", f"${pnl:,.2f}")
-            bcol3.metric("🔢 Trades", pt.get_trade_summary().get('total_trades', 0))
-        
-        st.markdown("---")
-        
-        if RUST_AVAILABLE and st.session_state.strategy_manager and current_price > 0:
-            st.markdown("### 🤖 Strategy Comparison")
-            
-            sm = st.session_state.strategy_manager
-            
-            # Measure strategy update latency (Rust computation)
-            with latency_tracker.measure('strategy_update'):
-                results = sm.update(current_price)
-            
-            for result in results:
-                name = result.name
-                signal = result.signal
-                old_pos = st.session_state.strategy_positions.get(name, 0)
-                if signal == "BUY" and old_pos <= 0:
-                    st.session_state.strategy_positions[name] = 1
-                elif signal == "SELL" and old_pos >= 0:
-                    st.session_state.strategy_positions[name] = -1
-            
-            if len(st.session_state.price_history) > 1:
-                price_change = st.session_state.price_history[-1] - st.session_state.price_history[-2]
-                for name in st.session_state.strategy_positions:
-                    pos = st.session_state.strategy_positions[name]
-                    pnl_change = pos * price_change
-                    current_pnl = st.session_state.pnl_history[name][-1] if st.session_state.pnl_history[name] else 0
-                    st.session_state.pnl_history[name].append(current_pnl + pnl_change)
-            
-            best_strat = None
-            best_pnl = float('-inf')
-            strat_cols = st.columns(3)
-            
-            for i, result in enumerate(results):
-                name = result.name
-                signal = result.signal
-                confidence = result.confidence
-                pnl_list = st.session_state.pnl_history.get(name, [0])
-                accumulated_pnl = pnl_list[-1] if pnl_list else 0
-                position = st.session_state.strategy_positions.get(name, 0)
-                
-                if accumulated_pnl > best_pnl:
-                    best_pnl = accumulated_pnl
-                    best_strat = name
-                
-                pos_text = "LONG 📈" if position > 0 else "SHORT 📉" if position < 0 else "FLAT ➖"
-                
-                with strat_cols[i]:
-                    if signal == "BUY":
-                        st.success(f"**{name.replace('_', ' ')}**")
-                    elif signal == "SELL":
-                        st.error(f"**{name.replace('_', ' ')}**")
-                    else:
-                        st.info(f"**{name.replace('_', ' ')}**")
-                    st.metric(f"Signal: {signal}", f"${accumulated_pnl:,.2f}", delta=pos_text)
-                    st.progress(min(confidence, 1.0))
-            
-            if best_strat:
-                st.success(f"🏆 **Leading:** {best_strat.replace('_', ' ')} (${best_pnl:,.2f})")
-            
-            if st.session_state.paper_trader:
-                st.markdown("---")
-                st.markdown("### 💼 Paper Trading")
-                st.caption("Practice buying and selling without real money!")
-                tcol1, tcol2, tcol3 = st.columns([1, 1, 1])
-                with tcol1:
-                    qty = st.number_input("Qty:", 0.001, 10.0, 0.01, 0.001, format="%.3f", key='trade_qty',
-                        help="Amount of crypto to buy or sell")
-                with tcol2:
-                    if st.button("🟢 BUY", type="primary", use_container_width=True, key='buy_btn'):
-                        result = st.session_state.paper_trader.execute_trade(symbol, "BUY", qty, current_price, best_strat or "Manual")
-                        st.toast(f"✅ {result['message']}" if result['status'] == 'FILLED' else f"❌ {result['message']}")
-                with tcol3:
-                    if st.button("🔴 SELL", use_container_width=True, key='sell_btn'):
-                        result = st.session_state.paper_trader.execute_trade(symbol, "SELL", qty, current_price, best_strat or "Manual")
-                        st.toast(f"✅ {result['message']}" if result['status'] == 'FILLED' else f"❌ {result['message']}")
-            
+        # -------------------------------------------------------------------
+        # Use @st.fragment so only this section re-renders, not the whole page.
+        # This eliminates the full-page flicker on every tick.
+        # The run_every interval drives the simulation loop automatically.
+        # -------------------------------------------------------------------
+        sim_speed = st.session_state.get('sim_speed', 5)
+        run_interval = max(0.15, 1.0 / sim_speed)
+
+        # Tick counter for throttling chart renders (charts are expensive)
+        if 'fragment_tick' not in st.session_state:
+            st.session_state.fragment_tick = 0
+
+        @st.fragment(run_every=run_interval)
+        def live_simulation_fragment():
+            st.session_state.fragment_tick += 1
+
+            # Start tracking total loop time
+            loop_start = time.perf_counter()
+
+            current_price = 0
+            mid_price = 0
+            spread = 0
+            bids_df = pd.DataFrame()
+            asks_df = pd.DataFrame()
+            regime = ""
+            symbol = "BTCUSDT"
+
+            if st.session_state.simulator:
+                sim = st.session_state.simulator
+
+                # Measure simulator tick latency
+                with latency_tracker.measure('simulator_tick'):
+                    tick = sim.next_tick()
+                    ob = sim.get_order_book(20)
+
+                current_price = tick.price
+                mid_price = ob.mid_price
+                spread = ob.spread
+                bids_df = pd.DataFrame(ob.bids, columns=['price', 'quantity'])
+                asks_df = pd.DataFrame(ob.asks, columns=['price', 'quantity'])
+                regime = sim.regime.replace('_', ' ').title()
+                symbol = sim.symbol
+
+            if current_price > 0:
+                st.session_state.price_history.append(current_price)
+                if len(st.session_state.price_history) > 500:
+                    st.session_state.price_history = st.session_state.price_history[-500:]
+
             st.markdown("---")
-            tab1, tab2, tab3 = st.tabs(["📈 Price", "📊 PnL", "📕 Order Book"])
-            
-            # Measure chart rendering latency
-            chart_start = time.perf_counter()
-            
-            with tab1:
-                if len(st.session_state.price_history) > 5:
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(y=st.session_state.price_history[-200:], mode='lines', line=dict(color='#26A69A', width=2)))
-                    fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            with tab2:
-                if any(len(v) > 3 for v in st.session_state.pnl_history.values()):
-                    fig = go.Figure()
-                    colors = {'Trend_Follower': '#2196F3', 'Mean_Reversion': '#4CAF50', 'Momentum_RSI': '#9C27B0'}
-                    for name, pnl_list in st.session_state.pnl_history.items():
-                        if pnl_list:
-                            fig.add_trace(go.Scatter(y=pnl_list[-200:], mode='lines', name=name.replace('_', ' '), line=dict(color=colors.get(name, '#888'), width=2)))
-                    fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', legend=dict(orientation='h'))
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            with tab3:
-                if not bids_df.empty and not asks_df.empty:
-                    bids_sorted = bids_df.sort_values('price', ascending=False).head(15)
-                    asks_sorted = asks_df.sort_values('price').head(15)
-                    bids_sorted['cum'] = bids_sorted['quantity'].cumsum()
-                    asks_sorted['cum'] = asks_sorted['quantity'].cumsum()
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=bids_sorted['price'], y=bids_sorted['cum'], fill='tozeroy', name='Bids', line=dict(color='#26A69A')))
-                    fig.add_trace(go.Scatter(x=asks_sorted['price'], y=asks_sorted['cum'], fill='tozeroy', name='Asks', line=dict(color='#EF5350')))
-                    fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            chart_elapsed_ms = (time.perf_counter() - chart_start) * 1000
-            latency_tracker.record('chart_render', chart_elapsed_ms)
-        else:
-            st.warning("⚠️ Run `maturin develop` to enable strategies.")
-        
-        # Calculate and print total loop latency
-        total_loop_ms = (time.perf_counter() - loop_start) * 1000
-        latency_tracker.record('total_loop', total_loop_ms)
-        
-        # Track tick completion (prints summary every 10 ticks)
-        latency_tracker.on_tick_complete()
-        
-        time.sleep(0.1)
-        st.rerun()
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("💰 Price", f"${current_price:,.2f}")
+            col2.metric("📊 Spread", f"${spread:,.4f}")
+            col3.metric("📈 Regime", regime)
+            col4.metric("⏱️ Ticks", len(st.session_state.price_history))
+
+            if st.session_state.paper_trader:
+                pt = st.session_state.paper_trader
+                pnl = pt.get_total_pnl({symbol: current_price})
+                holdings = pt.get_position(symbol)
+                bcol1, bcol2, bcol3, bcol4 = st.columns(4)
+                bcol1.metric("💵 Cash", f"${pt.cash_balance:,.2f}")
+                bcol2.metric("📊 PnL", f"${pnl:,.2f}")
+                bcol3.metric("📦 Holdings", f"{holdings:.4f}")
+                bcol4.metric("🔢 Trades", pt.get_trade_summary().get('total_trades', 0))
+
+            st.markdown("---")
+
+            if RUST_AVAILABLE and st.session_state.strategy_manager and current_price > 0:
+                st.markdown("### 🤖 Strategy Comparison")
+
+                sm = st.session_state.strategy_manager
+
+                # Measure strategy update latency (Rust computation)
+                with latency_tracker.measure('strategy_update'):
+                    results = sm.update(current_price)
+
+                for result in results:
+                    name = result.name
+                    signal = result.signal
+                    old_pos = st.session_state.strategy_positions.get(name, 0)
+                    if signal == "BUY" and old_pos <= 0:
+                        st.session_state.strategy_positions[name] = 1
+                    elif signal == "SELL" and old_pos >= 0:
+                        st.session_state.strategy_positions[name] = -1
+
+                if len(st.session_state.price_history) > 1:
+                    price_change = st.session_state.price_history[-1] - st.session_state.price_history[-2]
+                    for name in st.session_state.strategy_positions:
+                        pos = st.session_state.strategy_positions[name]
+                        pnl_change = pos * price_change
+                        current_pnl = st.session_state.pnl_history[name][-1] if st.session_state.pnl_history[name] else 0
+                        st.session_state.pnl_history[name].append(current_pnl + pnl_change)
+
+                best_strat = None
+                best_pnl = float('-inf')
+                strat_cols = st.columns(3)
+
+                for i, result in enumerate(results):
+                    name = result.name
+                    signal = result.signal
+                    confidence = result.confidence
+                    pnl_list = st.session_state.pnl_history.get(name, [0])
+                    accumulated_pnl = pnl_list[-1] if pnl_list else 0
+                    position = st.session_state.strategy_positions.get(name, 0)
+
+                    if accumulated_pnl > best_pnl:
+                        best_pnl = accumulated_pnl
+                        best_strat = name
+
+                    pos_text = "LONG 📈" if position > 0 else "SHORT 📉" if position < 0 else "FLAT ➖"
+
+                    with strat_cols[i]:
+                        if signal == "BUY":
+                            st.success(f"**{name.replace('_', ' ')}**")
+                        elif signal == "SELL":
+                            st.error(f"**{name.replace('_', ' ')}**")
+                        else:
+                            st.info(f"**{name.replace('_', ' ')}**")
+                        st.metric(f"Signal: {signal}", f"${accumulated_pnl:,.2f}", delta=pos_text)
+                        st.progress(min(confidence, 1.0))
+
+                if best_strat:
+                    st.success(f"🏆 **Leading:** {best_strat.replace('_', ' ')} (${best_pnl:,.2f})")
+
+                if st.session_state.paper_trader:
+                    st.markdown("---")
+                    st.markdown("### 💼 Paper Trading")
+                    st.caption("Practice buying and selling without real money!")
+                    tcol1, tcol2, tcol3 = st.columns([1, 1, 1])
+                    with tcol1:
+                        qty = st.number_input("Qty:", 0.001, 10.0, 0.01, 0.001, format="%.3f", key='trade_qty',
+                            help="Amount of crypto to buy or sell")
+                    with tcol2:
+                        # Invisible spacer to push the button down to align with the number input
+                        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+                        if st.button("🟢 BUY", type="primary", use_container_width=True, key='buy_btn'):
+                            result = st.session_state.paper_trader.execute_trade(symbol, "BUY", qty, current_price, best_strat or "Manual")
+                            if result['status'] == 'FILLED':
+                                st.toast(f"✅ {result['message']}")
+                            else:
+                                st.toast(f"⚠️ {result['message']}", icon="⚠️")
+                    with tcol3:
+                        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+                        if st.button("🔴 SELL", use_container_width=True, key='sell_btn'):
+                            # Check holdings before attempting sell
+                            current_holdings = st.session_state.paper_trader.get_position(symbol)
+                            if current_holdings <= 0:
+                                st.toast(f"🚫 Cannot sell — you don't own any {symbol}. Buy some first!", icon="🚫")
+                            elif qty > current_holdings:
+                                st.toast(f"⚠️ Cannot sell {qty:.3f} — you only own {current_holdings:.4f} {symbol}", icon="⚠️")
+                            else:
+                                result = st.session_state.paper_trader.execute_trade(symbol, "SELL", qty, current_price, best_strat or "Manual")
+                                if result['status'] == 'FILLED':
+                                    st.toast(f"✅ {result['message']}")
+                                else:
+                                    st.toast(f"⚠️ {result['message']}", icon="⚠️")
+
+                st.markdown("---")
+                tab1, tab2, tab3 = st.tabs(["📈 Price", "📊 PnL", "📕 Order Book"])
+
+                # Config to disable Plotly interactivity for faster rendering
+                plotly_config = {'staticPlot': True, 'displayModeBar': False}
+
+                # Measure chart rendering latency
+                chart_start = time.perf_counter()
+
+                with tab1:
+                    if len(st.session_state.price_history) > 5:
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(
+                            y=st.session_state.price_history[-200:],
+                            mode='lines',
+                            line=dict(color='#26A69A', width=2),
+                            name='Price'
+                        ))
+                        fig.update_layout(
+                            height=300,
+                            margin=dict(l=0, r=0, t=10, b=0),
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            xaxis=dict(showgrid=False),
+                            yaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.15)'),
+                        )
+                        st.plotly_chart(fig, use_container_width=True, config=plotly_config, key='chart_price')
+                    else:
+                        st.caption("Waiting for price data...")
+
+                with tab2:
+                    if any(len(v) > 3 for v in st.session_state.pnl_history.values()):
+                        fig = go.Figure()
+                        colors = {'Trend_Follower': '#2196F3', 'Mean_Reversion': '#4CAF50', 'Momentum_RSI': '#9C27B0'}
+                        for name, pnl_list in st.session_state.pnl_history.items():
+                            if pnl_list:
+                                fig.add_trace(go.Scatter(
+                                    y=pnl_list[-200:],
+                                    mode='lines',
+                                    name=name.replace('_', ' '),
+                                    line=dict(color=colors.get(name, '#888'), width=2)
+                                ))
+                        fig.update_layout(
+                            height=300,
+                            margin=dict(l=0, r=0, t=10, b=0),
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            legend=dict(orientation='h'),
+                            xaxis=dict(showgrid=False),
+                            yaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.15)'),
+                        )
+                        st.plotly_chart(fig, use_container_width=True, config=plotly_config, key='chart_pnl')
+                    else:
+                        st.caption("Waiting for PnL data...")
+
+                with tab3:
+                    if not bids_df.empty and not asks_df.empty:
+                        bids_sorted = bids_df.sort_values('price', ascending=False).head(15)
+                        asks_sorted = asks_df.sort_values('price').head(15)
+                        bids_sorted['cum'] = bids_sorted['quantity'].cumsum()
+                        asks_sorted['cum'] = asks_sorted['quantity'].cumsum()
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(x=bids_sorted['price'], y=bids_sorted['cum'], fill='tozeroy', name='Bids', line=dict(color='#26A69A')))
+                        fig.add_trace(go.Scatter(x=asks_sorted['price'], y=asks_sorted['cum'], fill='tozeroy', name='Asks', line=dict(color='#EF5350')))
+                        fig.update_layout(
+                            height=300,
+                            margin=dict(l=0, r=0, t=10, b=0),
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            xaxis=dict(showgrid=False),
+                            yaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.15)'),
+                        )
+                        st.plotly_chart(fig, use_container_width=True, config=plotly_config, key='chart_orderbook')
+                    else:
+                        st.caption("Waiting for order book data...")
+
+                chart_elapsed_ms = (time.perf_counter() - chart_start) * 1000
+                latency_tracker.record('chart_render', chart_elapsed_ms)
+
+                # --- Update sidebar trades from within the fragment ---
+                if st.session_state.paper_trader:
+                    trades = st.session_state.paper_trader.trade_history
+                    if trades:
+                        with sidebar_trades_placeholder.container():
+                            st.markdown("### 📋 Your Trades")
+                            for trade in reversed(trades[-5:]):
+                                emoji = "🟢" if trade['side'] == 'BUY' else "🔴"
+                                st.caption(f"{emoji} {trade['side']} {trade['quantity']:.4f} @ ${trade['price']:,.2f}")
+                            st.caption(f"Total: {len(trades)} trades")
+            else:
+                st.warning("Run `maturin develop` to enable strategies.")
+
+            # Calculate and print total loop latency
+            total_loop_ms = (time.perf_counter() - loop_start) * 1000
+            latency_tracker.record('total_loop', total_loop_ms)
+
+            # Track tick completion (prints summary every 10 ticks)
+            latency_tracker.on_tick_complete()
+
+        # Invoke the fragment
+        live_simulation_fragment()
 
     else:
         st.markdown("---")
