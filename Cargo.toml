@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 # Async runtime and WebSockets
 tokio = { version = "1.37.0", features = ["full"] }
-tokio-tungstenite = { version = "0.23.0", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.23.0", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3.30"
 url = "2.5.0"
 
@@ -32,9 +32,13 @@ ringbuf = "0.4.0"
 hdrhistogram = "7.5.4"
 
 # Trading - HTTP client for order execution
-reqwest = { version = "0.11", features = ["json", "blocking"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "blocking", "rustls-tls"] }
 
 # Trading - Cryptographic signing for Binance API
 hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
