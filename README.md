@@ -1,6 +1,10 @@
 # Trading Strategy Simulator
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://binancestreamer.streamlit.app/)
+
 A comprehensive trading strategy simulation platform that allows you to compare different algorithmic trading strategies in a risk-free environment. Built with a Streamlit web interface and powered by high-performance Rust-based trading algorithms.
+
+**🌐 Live Demo:** [https://binancestreamer.streamlit.app/](https://binancestreamer.streamlit.app/)
 
 ## 🎯 What Is This?
 
@@ -83,6 +87,7 @@ Run thousands of backtests to statistically validate strategy performance:
 | **Data Processing** | Pandas |
 | **Trading Algorithms** | Rust |
 | **Python-Rust Bridge** | PyO3 & Maturin |
+| **Cryptography** | `rustls` (Pure Rust, Optimized for Cloud Deployment) |
 
 ## 📦 Installation
 
@@ -138,6 +143,15 @@ streamlit run dashboard_v2.py
 ```
 
 The dashboard will open in your browser at `http://localhost:8501`.
+
+### ☁️ Cloud Deployment (Streamlit Community Cloud)
+
+This app is heavily optimized for zero-configuration deployment on **Streamlit Community Cloud**.
+The repository is pre-configured with:
+- `packages.txt`: For required system-level dependencies.
+- `requirements.txt`: Python package limits relaxed to ensure availability of pre-compiled wheels for newer Python versions.
+- `.cargo/config.toml`: Enforces memory usage guardrails (`jobs=1`) preventing Out-Of-Memory (OOM) crashes during `maturin` builds in cloud containers.
+- Pure Rust Cryptography (`rustls`): Bypasses system OpenSSL (`libssl-dev`) requirements entirely for flawless CI/CD.
 
 ### First Time Users - Getting Started
 
