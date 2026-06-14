@@ -1,2 +1,4 @@
 rustc
 cargo
+pkg-config
+libssl-dev
