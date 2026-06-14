@@ -1,9 +1,9 @@
-streamlit>=1.30.0,<1.40.0
-pandas>=2.0.0,<3.0.0
-plotly>=5.18.0,<6.0.0
-numpy>=1.24.0,<2.0.0
-pyarrow>=14.0.0,<16.0.0
-requests>=2.31.0,<3.0.0
-websocket-client>=1.7.0,<2.0.0
-maturin>=1.0.0,<2.0.0
+streamlit
+pandas
+plotly
+numpy
+pyarrow
+requests
+websocket-client
+maturin
 .
